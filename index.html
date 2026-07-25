@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-<title>Три Пушки — сохраняющийся прицел, исправлено</title>
+<title>Три Пушки — управление по углу стика</title>
 <style>
 :root{
   color-scheme:dark;
@@ -221,7 +221,7 @@ button{
 
   <div class="bottom">
     <div class="hint">
-      Сенсорное управление: верхняя полусфера и горизонталь — прицел; нижняя полусфера — движение вбок. Прицел сохраняет последнее положение.
+      Сенсорное управление: до ±30° — прицел; 30°–45° — прицел и движение; после ±45° — только движение. Последний угол прицела сохраняется.
     </div>
     <div class="actions">
       <button class="secondary" id="pauseBtn">Пауза</button>
@@ -1405,17 +1405,28 @@ function updateMouseInput(clientX,clientY){
   const ny=dy/mouseRadius;
   const dead=.1;
 
-  const horizontalBand = Math.abs(ny)<=0.20;
-  const aimingZone = ny<0 || horizontalBand;
-
-  if(aimingZone){
-    mouseInput.steer=Math.abs(nx)<dead?null:nx;
-    mouseInput.move=0;
-  }else{
-    // В нижней полусфере двигаем отряд,
-    // но угол прицела не изменяем.
+  const lengthNorm=Math.min(1,Math.hypot(nx,ny));
+  if(lengthNorm<dead){
     mouseInput.steer=null;
-    mouseInput.move=Math.abs(nx)<dead?0:nx;
+    mouseInput.move=0;
+    return;
+  }
+
+  const deflectionDeg=Math.atan2(nx,-ny)*180/Math.PI;
+  const absDeflection=Math.abs(deflectionDeg);
+  const side=Math.sign(deflectionDeg);
+
+  if(absDeflection<=30){
+    mouseInput.steer=Math.max(-1,Math.min(1,deflectionDeg/30));
+    mouseInput.move=0;
+  }else if(absDeflection<45){
+    const moveBlend=(absDeflection-30)/15;
+    const aimBlend=1-moveBlend;
+    mouseInput.steer=side*aimBlend;
+    mouseInput.move=side*moveBlend*lengthNorm;
+  }else{
+    mouseInput.steer=null;
+    mouseInput.move=side*lengthNorm;
   }
 }
 
@@ -1452,8 +1463,9 @@ canvas.addEventListener('pointercancel',e=>{
 
 
 // Плавающий стик: касание в любом месте игрового поля.
-// Верхняя полусфера и горизонталь — направление стрельбы.
-// Нижняя полусфера — движение отряда вбок без сброса прицела.
+// Управление зависит от угла отклонения стика:
+ // ±30° — прицел, 30°..45° — смешивание,
+ // после ±45° — только движение.
 const floatingStick=$('floatingStick');
 const floatingStickKnob=$('floatingStickKnob');
 
@@ -1486,19 +1498,43 @@ function updateFloatingTouch(clientX,clientY){
   const ny=dy/floatingRadius;
   const dead=.12;
 
-  // Горизонтальное движение всегда относится к прицелу.
-  // Верхняя полусфера также управляет прицелом.
-  // Только заметное движение вниз включает боковое перемещение.
-  const horizontalBand=Math.abs(ny)<=0.24;
-  const aimingZone=ny<0 || horizontalBand;
-
-  if(aimingZone){
-    touchInput.steer=Math.abs(nx)<dead?null:nx;
-    touchInput.move=0;
-  }else{
-    // При переходе вниз сохраняем последний угол прицела.
+  // Управление определяется только углом отклонения стика
+  // относительно вертикали вверх.
+  //
+  // |angle| <= 30° : только прицел
+  // 30°..45°       : плавное смешивание прицела и движения
+  // |angle| >= 45° : только движение
+  const lengthNorm=Math.min(1,Math.hypot(nx,ny));
+  if(lengthNorm<dead){
     touchInput.steer=null;
-    touchInput.move=Math.abs(nx)<dead?0:nx;
+    touchInput.move=0;
+    return;
+  }
+
+  // Отрицательный угол — влево, положительный — вправо.
+  const deflectionDeg=Math.atan2(nx,-ny)*180/Math.PI;
+  const absDeflection=Math.abs(deflectionDeg);
+  const side=Math.sign(deflectionDeg);
+
+  if(absDeflection<=30){
+    // В центральном секторе угол отклонения полностью управляет прицелом.
+    touchInput.steer=Math.max(-1,Math.min(1,deflectionDeg/30));
+    touchInput.move=0;
+  }else if(absDeflection<45){
+    // Между 30° и 45° плавно добавляем движение
+    // и одновременно ослабляем влияние на прицел.
+    const moveBlend=(absDeflection-30)/15;
+    const aimBlend=1-moveBlend;
+
+    // Прицел продолжает тянуться к крайнему положению,
+    // но его вклад плавно уменьшается.
+    touchInput.steer=side*aimBlend;
+    touchInput.move=side*moveBlend*lengthNorm;
+  }else{
+    // После 45° — только движение.
+    // Последнее положение прицела сохраняется.
+    touchInput.steer=null;
+    touchInput.move=side*lengthNorm;
   }
 }
 

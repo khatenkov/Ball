@@ -1,0 +1,1561 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>Три Пушки — сохраняющийся прицел, исправлено</title>
+<style>
+:root{
+  color-scheme:dark;
+  --bg:#050b17;--panel:#0b1730;--text:#eef5ff;--muted:#9fb0cc;
+  --blue:#66a8ff;--green:#69efb0;--red:#ff667c;--gold:#ffd95d
+}
+*{box-sizing:border-box}
+body{
+  margin:0;min-height:100vh;display:grid;place-items:center;padding:14px;
+  background:radial-gradient(circle at top,#17345f 0%,#07111f 48%,#030813 100%);
+  color:var(--text);font-family:Inter,system-ui,Segoe UI,sans-serif
+}
+.shell{
+  width:min(96vw,820px);padding:14px;border-radius:24px;
+  background:rgba(8,18,37,.94);border:1px solid rgba(110,155,255,.38);
+  box-shadow:0 28px 90px rgba(0,0,0,.5)
+}
+.hud{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));
+  gap:8px;margin-bottom:10px;min-height:72px
+}
+.pill{
+  display:flex;align-items:center;justify-content:center;gap:5px;
+  min-height:34px;padding:7px 10px;border-radius:999px;
+  background:rgba(255,255,255,.06);color:var(--muted);
+  font-size:13px;white-space:nowrap;font-variant-numeric:tabular-nums
+}
+.pill strong{color:var(--text)}
+.wrap{position:relative;width:100%;aspect-ratio:4/5;overflow:hidden;border-radius:18px}
+canvas{
+  width:100%;height:100%;display:block;touch-action:none;
+  border:1px solid rgba(100,155,255,.5);border-radius:18px;
+  background:#061020
+}
+.overlay,.upgrade{
+  position:absolute;inset:0;display:none;place-items:center;padding:18px;
+  background:rgba(2,7,16,.84);backdrop-filter:blur(8px);z-index:5;text-align:center
+}
+.overlay.show,.upgrade.show{display:grid}
+.cardbox{max-width:430px}
+.cardbox h2,.upgrade h2{margin:0 0 10px}
+.cardbox p,.upgrade p{color:var(--muted);line-height:1.45}
+button{
+  border:0;border-radius:12px;padding:11px 16px;font:inherit;font-weight:800;
+  color:white;cursor:pointer;background:linear-gradient(135deg,#5d96ff,#8e72ff)
+}
+.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;width:min(100%,680px)}
+.upcard{
+  min-height:180px;padding:15px;border:1px solid rgba(130,180,255,.45);
+  background:linear-gradient(180deg,rgba(40,72,128,.88),rgba(12,25,49,.98));
+  border-radius:16px;color:white
+}
+.upcard .icon{font-size:30px;margin-bottom:10px}
+.upcard strong{display:block;margin-bottom:7px}
+.upcard span{color:var(--muted);font-size:13px;line-height:1.4}
+.bottom{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;margin-top:10px}
+.hint{color:var(--muted);font-size:13px;line-height:1.45}
+.actions{display:flex;gap:8px}
+.secondary{background:rgba(255,255,255,.08)}
+.mobile{display:none}
+
+.floating-stick{
+  position:fixed;
+  width:132px;
+  height:132px;
+  margin-left:-66px;
+  margin-top:-66px;
+  border-radius:50%;
+  background:rgba(255,255,255,.07);
+  border:2px solid rgba(255,255,255,.28);
+  box-shadow:inset 0 0 28px rgba(0,0,0,.35);
+  pointer-events:none;
+  z-index:999;
+  display:none;
+}
+.floating-stick::before,
+.floating-stick::after{
+  content:"";
+  position:absolute;
+  background:rgba(255,255,255,.14);
+}
+.floating-stick::before{
+  left:50%;
+  top:10px;
+  bottom:10px;
+  width:1px;
+}
+.floating-stick::after{
+  top:50%;
+  left:10px;
+  right:10px;
+  height:1px;
+}
+.floating-stick .upper-label,
+.floating-stick .lower-label{
+  position:absolute;
+  left:50%;
+  transform:translateX(-50%);
+  font:700 11px/1 sans-serif;
+  color:rgba(255,255,255,.55);
+  letter-spacing:.08em;
+}
+.floating-stick .upper-label{top:15px}
+.floating-stick .lower-label{bottom:15px}
+.floating-stick-knob{
+  position:absolute;
+  left:50%;
+  top:50%;
+  width:54px;
+  height:54px;
+  margin-left:-27px;
+  margin-top:-27px;
+  border-radius:50%;
+  background:rgba(255,255,255,.24);
+  border:2px solid rgba(255,255,255,.58);
+  box-shadow:0 6px 18px rgba(0,0,0,.4);
+  transform:translate(0,0);
+}
+
+
+@media(max-width:640px),(pointer:coarse){
+  .bottom{grid-template-columns:1fr}.actions button{flex:1}.mobile{display:none}
+  .cards{grid-template-columns:1fr}.upcard{min-height:0}
+}
+
+@media(max-width:640px),(pointer:coarse){
+  html,body{width:100%;height:100%;overflow:hidden;overscroll-behavior:none}
+  body{
+    min-height:100dvh;height:100dvh;padding:0;display:block;
+    background:#030813;
+  }
+  .shell{
+    width:100%;height:100dvh;padding:max(6px,env(safe-area-inset-top)) 6px max(6px,env(safe-area-inset-bottom));
+    border:0;border-radius:0;box-shadow:none;display:flex;flex-direction:column;overflow:hidden
+  }
+  .hud{
+    flex:0 0 auto;display:flex;gap:5px;min-height:0;margin-bottom:5px;overflow-x:auto;
+    scrollbar-width:none
+  }
+  .hud::-webkit-scrollbar{display:none}
+  .pill{min-height:28px;padding:4px 8px;font-size:11px;flex:0 0 auto}
+  .pill:nth-child(2),.pill:nth-child(3),.pill:nth-child(4),.pill:nth-child(7){display:none}
+  .wrap{
+    flex:1 1 auto;width:100%;height:auto;min-height:0;aspect-ratio:auto;border-radius:12px
+  }
+  canvas{border-radius:12px}
+  .bottom{
+    flex:0 0 auto;display:flex;grid-template-columns:none;margin-top:5px;gap:5px
+  }
+  .hint{display:none}
+  .actions{width:100%;gap:5px}
+  .actions button{flex:1;padding:8px;font-size:14px}
+  .mobile{
+    position:absolute;display:flex;left:50%;bottom:18px;transform:translateX(-50%);
+    margin:0;z-index:4;pointer-events:none
+  }
+  .joystick{
+    width:132px;height:132px;pointer-events:auto;
+    background:rgba(15,25,44,.72);border-color:rgba(255,255,255,.42);
+    -webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)
+  }
+  .joystick-knob{width:56px;height:56px;margin-left:-28px;margin-top:-28px}
+  .overlay,.upgrade{padding:14px}
+  .cardbox{max-width:320px;padding:20px 16px;border-radius:18px;background:rgba(7,18,36,.94)}
+  .cardbox h2{font-size:28px;margin-bottom:12px}
+  .cardbox p{font-size:16px;line-height:1.45;margin:0 0 18px}
+  .cardbox button{width:100%;font-size:18px;padding:14px}
+  .cards{grid-template-columns:1fr;max-height:75dvh;overflow:auto}
+}
+
+</style>
+</head>
+
+<body>
+<div id="floatingStick" class="floating-stick">
+  <div class="upper-label">ПРИЦЕЛ</div>
+  <div class="lower-label">ДВИЖЕНИЕ</div>
+  <div id="floatingStickKnob" class="floating-stick-knob"></div>
+</div>
+
+<main class="shell">
+  <div class="hud">
+    <div class="pill">Счёт: <strong id="score">0</strong></div>
+    <div class="pill">Уровень: <strong id="level">1</strong></div><div class="pill">Волна: <strong id="wave">1/3</strong></div><div class="pill">Осталось в волне: <strong id="waveLeft">0</strong></div>
+    <div class="pill">Угол: <strong id="angle">0°</strong></div>
+    <div class="pill">HP отряда: <strong id="teamHp">6</strong></div>
+    <div class="pill">Очередь: <strong id="turnName">пистолет</strong></div>
+  </div>
+
+  <div class="wrap">
+    <canvas id="game" width="800" height="1000"></canvas>
+
+    <div class="upgrade" id="upgrade">
+      <div>
+        <h2>Выберите улучшение</h2>
+        <p>Игра остановлена до выбора.</p>
+        <div class="cards" id="cards"></div>
+      </div>
+    </div>
+
+    <div class="overlay show" id="overlay">
+      <div class="cardbox">
+        <h2 id="overlayTitle">Три героя-пушки</h2>
+        <p id="overlayText">
+          Влево-вправо — направление стрельбы. Потяни стик вперёд, чтобы отряд двигался в сторону прицела.
+        </p>
+        <button id="startBtn">Начать игру</button>
+      </div>
+    </div>
+
+    <div class="mobile">
+      
+    </div>
+  </div>
+
+  <div class="bottom">
+    <div class="hint">
+      Сенсорное управление: верхняя полусфера и горизонталь — прицел; нижняя полусфера — движение вбок. Прицел сохраняет последнее положение.
+    </div>
+    <div class="actions">
+      <button class="secondary" id="pauseBtn">Пауза</button>
+      <button class="secondary" id="restartBtn">Заново</button>
+    </div>
+  </div>
+
+</main>
+
+<script>
+const canvas=document.getElementById('game'),ctx=canvas.getContext('2d');
+const $=id=>document.getElementById(id);
+const ui={
+ score:$('score'),level:$('level'),wave:$('wave'),waveLeft:$('waveLeft'),angle:$('angle'),teamHp:$('teamHp'),
+ turnName:$('turnName'),
+ overlay:$('overlay'),overlayTitle:$('overlayTitle'),overlayText:$('overlayText'),
+ startBtn:$('startBtn'),pauseBtn:$('pauseBtn'),restartBtn:$('restartBtn'),
+ upgrade:$('upgrade'),cards:$('cards')
+};
+
+const keys={left:false,right:false,up:false,down:false};
+const mouseInput={steer:null,move:0};
+const touchInput={steer:null,move:0};
+const colors=['#ff5c62','#ff9638','#ffd449','#55d65e','#3ba4ff','#8d59ff'];
+
+let running=false,paused=false,choosing=false,last=0,raf=0;
+let score=0,level=1,waveInCycle=1,teamHp=6,angleDeg=0;
+let persistentSteer=0;
+let waveBudget=0;
+let spawnedThisWave=0;
+let destroyedThisWave=0;
+let initialSpawnDone=false;
+let bullets=[],bricks=[],particles=[],lightningEffects=[],bossSpawnEffects=[],bonuses=[];
+let turnIndex=0,turnTimer=0,burstQueue=[];
+let rowSpawnTimer=0,bonusCooldown=0;
+let bricksSinceBonus=0;
+let bossSpawnTimer=0;
+let formation={x:400,y:900,vx:0,maxSpeed:260,accel:1050,drag:8};
+let damageBonus=0,pierce=0,chain=0;
+
+const weapons=[
+ {id:'pistol',name:'пистолет',cooldown:1.25,color:'#73b4ff'},
+ {id:'shotgun',name:'дробовик',cooldown:1.05,color:'#ffb45e'},
+ {id:'auto',name:'автомат',cooldown:1.35,color:'#74efb2'}
+];
+
+function resetGame(){
+ score=0;level=1;waveInCycle=1;teamHp=6;angleDeg=0;persistentSteer=0;
+ waveBudget=waveBudgetForCurrentWave();
+ spawnedThisWave=0;
+ destroyedThisWave=0;
+ initialSpawnDone=false;
+ bullets=[];particles=[];lightningEffects=[];bossSpawnEffects=[];bonuses=[];turnIndex=0;turnTimer=0;burstQueue=[];
+ rowSpawnTimer=0;bonusCooldown=0;bricksSinceBonus=0;damageBonus=0;pierce=0;chain=0;
+ formation={x:400,y:900,vx:0,maxSpeed:260,accel:1050,drag:8};
+ createInitialBricks();updateUI();draw();
+}
+
+function randomTargetX(){return 180+Math.random()*440}
+
+function heroPositions(){
+ return [
+  {type:'pistol',x:formation.x,y:formation.y-62},
+  {type:'shotgun',x:formation.x-62,y:formation.y+12},
+  {type:'auto',x:formation.x+62,y:formation.y+12}
+ ];
+}
+
+function getHero(type){return heroPositions().find(h=>h.type===type)}
+
+function nextShooterType(){
+  return weapons[turnIndex].id;
+}
+
+function nextShooterHero(){
+  return getHero(nextShooterType()) || heroPositions()[0];
+}
+
+
+const GRID = {
+  cols: 10,
+  gap: 8,
+  margin: 34,
+  h: 34,
+  rowGap: 42
+};
+
+function gridWidth(){
+  return (canvas.width - GRID.margin*2 - GRID.gap*(GRID.cols-1)) / GRID.cols;
+}
+
+function gridX(col){
+  return GRID.margin + col * (gridWidth() + GRID.gap);
+}
+
+function brickAtCell(col, rowY, tolerance=12){
+  const x = gridX(col);
+  const w = gridWidth();
+  const h = GRID.h;
+  const gap = 3;
+
+  return bricks.some(b => {
+    if(!b.alive) return false;
+
+    return !(
+      x + w + gap <= b.x ||
+      x >= b.x + b.w + gap ||
+      rowY + h + gap <= b.y ||
+      rowY >= b.y + b.h + gap
+    );
+  });
+}
+
+function makeBrick(col, y, hp, color, type='normal'){
+  const w = gridWidth();
+  return {
+    x: gridX(col),
+    y,
+    w,
+    h: GRID.h,
+    hp,
+    maxHp: hp,
+    alive: true,
+    color,
+    type,
+    bossTimer: type === 'boss' ? 0 : undefined,
+    bossCooldown: type === 'boss' ? 4.5 + Math.random()*2.5 : undefined
+  };
+}
+
+
+function makeBoss(y){
+  const w = gridWidth();
+  const bossCols = 3;
+  const bossRows = 2;
+  const bossW = bossCols * w + (bossCols - 1) * GRID.gap;
+  const bossH = bossRows * GRID.h + (bossRows - 1) * GRID.gap;
+  const startCol = Math.floor((GRID.cols - bossCols) / 2);
+
+  const hp = 160 + level * 45;
+
+  return {
+    x: gridX(startCol),
+    y,
+    w: bossW,
+    h: bossH,
+    hp,
+    maxHp: hp,
+    alive: true,
+    color: '#d55cff',
+    type: 'boss',
+    countsForWave: true,
+    bossTimer: 0,
+    bossCooldown: 3.2,
+    pulse: 0,
+    phase: 1,
+    shield: false,
+    shieldTimer: 0,
+    shieldCooldown: 7.5,
+    enraged: false,
+    startCol,
+    bossCols,
+    bossRows
+  };
+}
+
+function bossOccupiesCell(boss, col, rowY){
+  const x = gridX(col);
+  const w = gridWidth();
+  const h = GRID.h;
+
+  return !(
+    x + w <= boss.x ||
+    x >= boss.x + boss.w ||
+    rowY + h <= boss.y ||
+    rowY >= boss.y + boss.h
+  );
+}
+
+function randomSpawnPattern(){
+  const patterns = [
+    [0,1,2,3,4,5,6,7,8,9],                 // полный ряд
+    [0,2,4,6,8],                            // через один
+    [1,3,5,7,9],
+    [0,1,4,5,8,9],                          // пары
+    [2,3,4,5,6,7],                          // центр
+    [0,1,2,7,8,9],                          // края
+    [0,3,6,9],                              // редкий
+    [1,2,4,5,7,8],
+    [0,2,3,5,6,8,9]
+  ];
+  return patterns[Math.floor(Math.random()*patterns.length)];
+}
+
+function maybeSpawnBoss(y){
+  return null;
+}
+
+function spawnVariedRow(y, stronger=false){
+  const cols = randomSpawnPattern();
+  const spawned = [];
+
+  for(const c of cols){
+    if(brickAtCell(c,y)) continue;
+    const hpBase = stronger ? 3 : 2;
+    const hp = hpBase + Math.floor(level * .6) + Math.floor(Math.random()*(stronger ? 5 : 4));
+    const color = colors[Math.floor(Math.random()*colors.length)];
+    const brick = makeBrick(c,y,hp,color,'normal');
+    bricks.push(brick);
+    spawned.push(brick);
+  }
+
+  const boss = maybeSpawnBoss(y);
+  if(boss){
+    bricks.push(boss);
+    spawned.push(boss);
+  }
+
+  return spawned;
+}
+
+function bossCreateBrick(boss){
+  const targetRows = [
+    boss.y - GRID.rowGap,
+    boss.y + boss.h + GRID.gap
+  ];
+
+  const candidates = [];
+
+  for(const rowY of targetRows){
+    if(rowY < 20 || rowY + GRID.h > formation.y - 120) continue;
+
+    for(let col=0;col<GRID.cols;col++){
+      if(bossOccupiesCell(boss,col,rowY)) continue;
+      if(!brickAtCell(col,rowY)){
+        candidates.push({col,rowY});
+      }
+    }
+  }
+
+  if(!candidates.length) return;
+
+  const amount = Math.min(
+    candidates.length,
+    boss.phase === 1 ? 2 :
+    boss.phase === 2 ? 3 :
+    4
+  );
+  const origin = {
+    x: boss.x + boss.w/2,
+    y: boss.y + boss.h/2
+  };
+
+  for(let i=0;i<amount;i++){
+    const index = Math.floor(Math.random()*candidates.length);
+    const cell = candidates.splice(index,1)[0];
+
+    if(brickAtCell(cell.col,cell.rowY)) continue;
+
+    const hp = 7 + level*2 + boss.phase*2 + Math.floor(Math.random()*7);
+    const newBrick = makeBrick(
+      cell.col,
+      cell.rowY,
+      hp,
+      '#b879ff',
+      'spawned'
+    );
+    newBrick.countsForWave = false;
+    newBrick.hiddenUntilSpawn = true;
+    bricks.push(newBrick);
+
+    bossSpawnEffects.push({
+      x: origin.x,
+      y: origin.y,
+      tx: newBrick.x + newBrick.w/2,
+      ty: newBrick.y + newBrick.h/2,
+      target: newBrick,
+      life: .6,
+      maxLife: .6
+    });
+  }
+
+  boss.pulse = 1.5;
+}
+
+function waveBudgetForCurrentWave(){
+  if(waveInCycle === 4) return 1; // отдельный босс
+  const budgets = [24, 30, 36];
+  return budgets[waveInCycle - 1] + Math.max(0, level - 1) * 4;
+}
+
+function waveRemaining(){
+  return Math.max(0, waveBudget - destroyedThisWave);
+}
+
+function activeWaveBricks(){
+  return bricks.filter(b => b.alive && b.countsForWave !== false);
+}
+
+function spawnBudgetedRow(y, stronger=false){
+  if(spawnedThisWave >= waveBudget) return 0;
+
+  const pattern = randomSpawnPattern();
+  let spawned = 0;
+
+  for(const c of pattern){
+    if(spawnedThisWave >= waveBudget) break;
+    if(brickAtCell(c, y)) continue;
+
+    const hpBase = stronger ? 3 : 2;
+    const hp = hpBase + Math.floor(level * .6) + Math.floor(Math.random() * (stronger ? 5 : 4));
+    const color = colors[Math.floor(Math.random() * colors.length)];
+    const brick = makeBrick(c, y, hp, color, 'normal');
+    brick.countsForWave = true;
+    bricks.push(brick);
+
+    spawned++;
+    spawnedThisWave++;
+  }
+
+  return spawned;
+}
+
+function startWave(){
+  bricks = [];
+  rowSpawnTimer = 0;
+  spawnedThisWave = 0;
+  destroyedThisWave = 0;
+  waveBudget = waveBudgetForCurrentWave();
+  initialSpawnDone = false;
+
+  if(waveInCycle === 4){
+    const boss = makeBoss(72);
+    bricks.push(boss);
+    spawnedThisWave = 1;
+    initialSpawnDone = true;
+  } else {
+    // Небольшой стартовый набор. Остальные кирпичи приходят постепенно.
+    spawnBudgetedRow(55, false);
+    spawnBudgetedRow(55 + GRID.rowGap, true);
+    initialSpawnDone = true;
+  }
+
+  updateUI();
+}
+
+function finishWave(){
+  if(waveInCycle < 4){
+    waveInCycle++;
+  }else{
+    waveInCycle = 1;
+    level++;
+  }
+
+  startWave();
+}
+
+function createInitialBricks(){
+  startWave();
+}
+
+function addTopRow(){
+  if(waveInCycle === 4) return false;
+  if(spawnedThisWave >= waveBudget) return false;
+
+  const spawnY = 28;
+  const minVerticalGap = GRID.h + GRID.gap;
+
+  const topBlocked = bricks.some(b =>
+    b.alive &&
+    b.y < spawnY + minVerticalGap
+  );
+
+  if(topBlocked) return false;
+
+  return spawnBudgetedRow(spawnY, true) > 0;
+}
+
+function aimDir(offsetDeg=0){
+ const r=(-90+angleDeg+offsetDeg)*Math.PI/180;
+ return {x:Math.cos(r),y:Math.sin(r)}
+}
+
+function makeBullet(type,x,y,dir,opts={}){
+ const speed=opts.speed||520;
+ return {
+   type,x,y,r:opts.r||8,vx:dir.x*speed,vy:dir.y*speed,
+   damage:opts.damage||1,pierceLeft:opts.pierceLeft||0,
+   fragile:!!opts.fragile,trail:[],dead:false,returned:false,
+   contactBrick:null
+ }
+}
+
+function firePistol(){
+ const h=getHero('pistol');
+ const d=aimDir();
+ bullets.push(makeBullet('pistol',h.x,h.y-18,d,{damage:3+damageBonus,r:9,speed:500,pierceLeft:pierce}));
+ return true;
+}
+
+function fireShotgun(){
+ const h=getHero('shotgun');
+ const offsets=[-7,7];
+ for(let i=0;i<offsets.length;i++){
+   const d=aimDir(offsets[i]);
+   bullets.push(makeBullet(
+     'shotgun',
+     h.x,
+     h.y-18,
+     d,
+     {
+       damage:2+damageBonus,
+       r:8,
+       speed:475,
+       pierceLeft:pierce
+     }
+   ));
+ }
+ return true;
+}
+
+function queueAutoBurst(){
+ const h=getHero('auto');
+ for(let i=0;i<5;i++){
+   burstQueue.push({delay:i*.09,type:'auto',x:h.x,y:h.y-18});
+ }
+ return true;
+}
+
+function fireTurn(){
+ const order=['pistol','shotgun','auto'];
+ const type=order[turnIndex];
+
+ if(type==='pistol')firePistol();
+ if(type==='shotgun')fireShotgun();
+ if(type==='auto')queueAutoBurst();
+
+ turnIndex=(turnIndex+1)%3;
+ updateUI();
+}
+
+function processBurst(dt){
+ for(const q of burstQueue)q.delay-=dt;
+ const ready=burstQueue.filter(q=>q.delay<=0);
+ burstQueue=burstQueue.filter(q=>q.delay>0);
+ for(const q of ready){
+   const h=getHero('auto');
+   const d=aimDir((Math.random()-.5)*3);
+   bullets.push(makeBullet('auto',h.x,h.y-18,d,{damage:1+damageBonus,r:6,speed:590,pierceLeft:pierce}));
+ }
+}
+
+function returnAmmo(b){}
+
+function updateFormation(dt){
+  const direction=Math.max(
+    -1,
+    Math.min(1,touchInput.move+mouseInput.move)
+  );
+
+  if(direction!==0){
+    formation.vx+=direction*formation.accel*dt;
+  }else{
+    formation.vx*=Math.exp(-formation.drag*dt);
+    if(Math.abs(formation.vx)<1)formation.vx=0;
+  }
+
+  formation.vx=Math.max(-formation.maxSpeed,Math.min(formation.maxSpeed,formation.vx));
+  formation.x+=formation.vx*dt;
+
+  const minX=82;
+  const maxX=canvas.width-82;
+  if(formation.x<minX){
+    formation.x=minX;
+    formation.vx=Math.max(0,formation.vx);
+  }
+  if(formation.x>maxX){
+    formation.x=maxX;
+    formation.vx=Math.min(0,formation.vx);
+  }
+}
+
+function circleRect(b,br){
+ const px=Math.max(br.x,Math.min(b.x,br.x+br.w));
+ const py=Math.max(br.y,Math.min(b.y,br.y+br.h));
+ const dx=b.x-px,dy=b.y-py;
+ return dx*dx+dy*dy<=b.r*b.r
+}
+
+function brickCenter(brick){
+ return {x:brick.x+brick.w/2,y:brick.y+brick.h/2};
+}
+
+function addLightningEffect(fromBrick,toBrick){
+ const a=brickCenter(fromBrick),b=brickCenter(toBrick);
+ lightningEffects.push({
+   x1:a.x,y1:a.y,x2:b.x,y2:b.y,
+   life:.28,maxLife:.28
+ });
+}
+
+function drawLightning(effect){
+ const segments=7;
+ const dx=effect.x2-effect.x1,dy=effect.y2-effect.y1;
+ const length=Math.hypot(dx,dy)||1;
+ const nx=-dy/length,ny=dx/length;
+
+ ctx.save();
+ ctx.globalAlpha=Math.max(0,effect.life/effect.maxLife);
+ ctx.strokeStyle='#fff36a';
+ ctx.lineWidth=3;
+ ctx.shadowColor='#ffe84f';
+ ctx.shadowBlur=14;
+ ctx.beginPath();
+ ctx.moveTo(effect.x1,effect.y1);
+
+ for(let i=1;i<segments;i++){
+   const t=i/segments;
+   const jitter=(Math.random()-.5)*18;
+   ctx.lineTo(
+     effect.x1+dx*t+nx*jitter,
+     effect.y1+dy*t+ny*jitter
+   );
+ }
+ ctx.lineTo(effect.x2,effect.y2);
+ ctx.stroke();
+
+ ctx.strokeStyle='rgba(255,255,255,.85)';
+ ctx.lineWidth=1;
+ ctx.shadowBlur=0;
+ ctx.stroke();
+ ctx.restore();
+}
+
+function hitChain(source,amount){
+ if(amount<=0)return;
+ const near=bricks.filter(b=>b.alive&&!b.hiddenUntilSpawn&&b.type!=='boss'&&b!==source&&Math.abs((b.x+b.w/2)-(source.x+source.w/2))<125&&Math.abs((b.y+b.h/2)-(source.y+source.h/2))<90);
+ for(let i=near.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[near[i],near[j]]=[near[j],near[i]]}
+ for(const b of near.slice(0,2)){
+   addLightningEffect(source,b);
+   b.hp-=amount;spawnParticles(b.x+b.w/2,b.y+b.h/2,'#ffe56d');
+   if(b.hp<=0){
+     b.alive=false;
+     score+=100;
+     if(b.countsForWave !== false) destroyedThisWave++;
+     maybeBonus(b);
+   }
+ }
+}
+
+function maybeBonus(sourceBrick, guaranteed=false){
+ if(!guaranteed) bricksSinceBonus++;
+
+ if(choosing || bonusCooldown>0 || bonuses.length>0) return;
+
+ // Обычный шанс 7%, но после 10 разрушений без бонуса
+ // следующее доступное выпадение гарантируется.
+ const pityTriggered = bricksSinceBonus >= 10;
+ if(!guaranteed && !pityTriggered && Math.random()>.07) return;
+
+ bonusCooldown=9;
+ bricksSinceBonus=0;
+
+ const x = sourceBrick
+   ? sourceBrick.x + sourceBrick.w/2
+   : canvas.width/2;
+ const y = sourceBrick
+   ? sourceBrick.y + sourceBrick.h/2
+   : 120;
+
+ bonuses.push({
+   x,y,
+   vx:(Math.random()-.5)*36,
+   vy:185,
+   r:14,
+   age:0,
+   chaseDelay:0.6,
+   state:'falling',
+   spin:0
+ });
+
+ spawnParticles(x,y,'#ffd95d');
+}
+
+const upgradePool=[
+ {id:'damage',icon:'💥',title:'+1 к урону',desc:'Все типы оружия наносят больше урона.'},
+ {id:'pierce',icon:'🧿',title:'+1 пробитие',desc:'Каждый шар проходит ещё один кирпич.'},
+ {id:'chain',icon:'⚡',title:'+1 молния',desc:'Попадание бьёт два соседних кирпича.'},
+ {id:'hp',icon:'❤️',title:'+1 HP отряда',desc:'Позволяет пережить прорыв кирпичей.'}
+];
+
+function showUpgrade(){
+ choosing=true;ui.cards.innerHTML='';
+ const pool=[...upgradePool],chosen=[];
+ while(chosen.length<3){chosen.push(pool.splice(Math.floor(Math.random()*pool.length),1)[0])}
+ for(const u of chosen){
+   const btn=document.createElement('button');btn.className='upcard';
+   btn.innerHTML=`<div class="icon">${u.icon}</div><strong>${u.title}</strong><span>${u.desc}</span>`;
+   btn.onclick=()=>applyUpgrade(u.id);ui.cards.appendChild(btn)
+ }
+ ui.upgrade.classList.add('show')
+}
+
+function applyUpgrade(id){
+ if(id==='damage')damageBonus++;
+ if(id==='pierce')pierce++;
+ if(id==='chain')chain++;
+ if(id==='hp')teamHp++;
+ if(id==='speed'){}
+ choosing=false;ui.upgrade.classList.remove('show');last=performance.now();updateUI()
+}
+
+function collectPhysicalBonus(bonus){
+  spawnParticles(bonus.x,bonus.y,'#82d8ff');
+  bonuses = bonuses.filter(item => item !== bonus);
+  showUpgrade();
+}
+
+function updateBonuses(dt){
+  const kept=[];
+
+  for(const bonus of bonuses){
+    bonus.age += dt;
+    bonus.spin += dt*7;
+
+    const dx = formation.x - bonus.x;
+    const dy = formation.y - bonus.y;
+    const distance = Math.hypot(dx,dy) || 1;
+
+    // Сначала бонус хорошо заметно падает.
+    if(bonus.state==='falling'){
+      bonus.vy+=170*dt;
+      bonus.x+=bonus.vx*dt;
+      bonus.y+=bonus.vy*dt;
+
+      if(bonus.age>=bonus.chaseDelay && distance<105){
+        bonus.state='homing';
+      }
+    }else{
+      const acceleration = 1350;
+      bonus.vx += (dx/distance)*acceleration*dt;
+      bonus.vy += (dy/distance)*acceleration*dt;
+
+      const speed = Math.hypot(bonus.vx,bonus.vy);
+      const maxSpeed = 720;
+      if(speed > maxSpeed){
+        bonus.vx = bonus.vx/speed*maxSpeed;
+        bonus.vy = bonus.vy/speed*maxSpeed;
+      }
+
+      bonus.vx *= Math.pow(.982,dt*60);
+      bonus.vy *= Math.pow(.982,dt*60);
+      bonus.x += bonus.vx*dt;
+      bonus.y += bonus.vy*dt;
+    }
+
+    bonus.x = Math.max(bonus.r,Math.min(canvas.width-bonus.r,bonus.x));
+    if(bonus.state==='homing'){
+      bonus.y = Math.max(bonus.r,Math.min(canvas.height-bonus.r,bonus.y));
+    }
+
+    if(bonus.state==='falling' && bonus.y-bonus.r>canvas.height){
+      continue;
+    }
+
+    const collectDistance = bonus.r + 34;
+    const ndx = bonus.x - formation.x;
+    const ndy = bonus.y - formation.y;
+    if(ndx*ndx + ndy*ndy <= collectDistance*collectDistance){
+      collectPhysicalBonus(bonus);
+      continue;
+    }
+
+    kept.push(bonus);
+  }
+
+  bonuses=kept;
+}
+
+function spawnParticles(x,y,color){
+ for(let i=0;i<7;i++)particles.push({x,y,vx:(Math.random()-.5)*180,vy:(Math.random()-.5)*180,life:.42,max:.42,color})
+}
+
+function update(dt){
+ if(choosing)return;
+
+ bonusCooldown=Math.max(0,bonusCooldown-dt);
+ updateBonuses(dt);
+ updateFormation(dt);
+ let steerCommand=null;
+
+ if(mouseInput.steer!==null)steerCommand=mouseInput.steer;
+ if(touchInput.steer!==null)steerCommand=touchInput.steer;
+
+ const keyboardSteer=(keys.right?1:0)-(keys.left?1:0);
+ if(keyboardSteer!==0)steerCommand=keyboardSteer;
+
+ if(steerCommand!==null){
+   persistentSteer=Math.max(-1,Math.min(1,steerCommand));
+ }
+
+ const targetAngle=persistentSteer*80;
+ const aimFollow=1-Math.exp(-11*dt);
+ angleDeg+=(targetAngle-angleDeg)*aimFollow;
+ angleDeg=Math.max(-80,Math.min(80,angleDeg));
+
+ turnTimer+=dt;
+ const current=weapons[turnIndex];
+ if(turnTimer>=current.cooldown){turnTimer=0;fireTurn()}
+ processBurst(dt);
+
+ const descendSpeed=9+level*.8;
+ for(const br of bricks){
+   if(!br.alive) continue;
+
+   const bossMultiplier =
+     br.type === 'boss'
+       ? (br.phase === 1 ? 1.0 : br.phase === 2 ? 1.22 : 1.52)
+       : 1;
+
+   br.y += descendSpeed * bossMultiplier * dt;
+
+   if(br.type === 'boss'){
+     const hpRatio = br.hp / br.maxHp;
+     br.phase = hpRatio > .66 ? 1 : hpRatio > .33 ? 2 : 3;
+     br.enraged = br.phase === 3;
+
+     br.bossTimer += dt;
+     br.shieldTimer += dt;
+     br.pulse = Math.max(0, (br.pulse || 0) - dt * 2.2);
+
+     // Временный щит включается регулярно. Во второй и третьей фазе чаще.
+     const shieldPeriod = br.phase === 1 ? 9.5 : br.phase === 2 ? 7.5 : 5.8;
+     if(!br.shield && br.shieldTimer >= shieldPeriod){
+       br.shield = true;
+       br.shieldTimer = 0;
+       br.pulse = 1.4;
+     }
+
+     // Щит держится ограниченное время.
+     if(br.shield && br.shieldTimer >= 1.55){
+       br.shield = false;
+       br.shieldTimer = 0;
+     }
+
+     const spawnPeriod =
+       br.phase === 1 ? 3.8 :
+       br.phase === 2 ? 2.9 :
+       2.2;
+
+     if(br.bossTimer >= spawnPeriod){
+       br.bossTimer = 0;
+       bossCreateBrick(br);
+     }
+   }
+ }
+ rowSpawnTimer+=dt;
+ if(rowSpawnTimer>=3.6){
+   if(addTopRow()) rowSpawnTimer=0;
+ }
+
+ const dangerY=formation.y-112;
+ const crossed=bricks.filter(b=>b.alive&&b.y+b.h>=dangerY);
+
+ if(crossed.length){
+   const bossCrossed = crossed.some(b=>b.type==='boss');
+
+   // Босс дошёл до отряда — мгновенное поражение.
+   if(bossCrossed){
+     spawnParticles(formation.x,formation.y,'#ff2f58');
+     teamHp = 0;
+     updateUI();
+     gameOver();
+     return;
+   }
+
+   // Обычные кирпичи снимают по 1 HP за каждую прорвавшуюся группу.
+   crossed.forEach(b=>b.alive=false);
+   teamHp--;
+   spawnParticles(formation.x,formation.y,'#ff667c');
+
+   if(teamHp<=0){
+     gameOver();
+     return;
+   }
+ }
+
+ for(const b of bullets){
+   b.trail.push({x:b.x,y:b.y,life:.16});if(b.trail.length>8)b.trail.shift();
+   for(const t of b.trail)t.life-=dt;
+   b.trail=b.trail.filter(t=>t.life>0);
+   b.x+=b.vx*dt;b.y+=b.vy*dt;
+
+   if(b.x-b.r<=0&&b.vx<0){b.x=b.r;b.vx*=-1}
+   if(b.x+b.r>=canvas.width&&b.vx>0){b.x=canvas.width-b.r;b.vx*=-1}
+   if(b.y-b.r<=0&&b.vy<0){b.y=b.r;b.vy*=-1}
+
+   // Пока шар физически находится внутри того же кирпича,
+   // повторный урон не наносится. Контакт сбрасывается только после выхода.
+   if(
+     b.contactBrick &&
+     (
+       !b.contactBrick.alive ||
+       !circleRect(b,b.contactBrick)
+     )
+   ){
+     b.contactBrick=null;
+   }
+
+   for(const br of bricks){
+     if(!br.alive||br.hiddenUntilSpawn||!circleRect(b,br))continue;
+     if(b.contactBrick===br)continue;
+     const prevX=b.x-b.vx*dt;
+     const side=prevX+b.r<=br.x||prevX-b.r>=br.x+br.w;
+     if(br.type==='boss'){
+       // Босс не пробивается насквозь: шар всегда отскакивает от его корпуса.
+       if(side)b.vx*=-1;else b.vy*=-1;
+     }else if(b.pierceLeft>0){
+       b.pierceLeft--;
+     }else if(side){
+       b.vx*=-1;
+     }else{
+       b.vy*=-1;
+     }
+
+     b.contactBrick=br;
+
+     const appliedDamage = br.type==='boss'
+       ? (
+           br.shield
+             ? 0
+             : Math.max(1,Math.ceil(b.damage*0.85))
+         )
+       : b.damage;
+
+     br.hp -= appliedDamage;
+
+     if(br.type==='boss' && br.shield){
+       spawnParticles(b.x,b.y,'#7de8ff');
+     }
+
+     if(br.type!=='boss') hitChain(br,chain);
+     spawnParticles(b.x,b.y,br.color);
+     if(br.hp<=0){
+       br.alive=false;
+       score += br.type === 'boss' ? 2500 : 100;
+
+       if(br.countsForWave !== false){
+         destroyedThisWave++;
+       }
+
+       if(br.type==='boss'){
+         bonusCooldown=0;
+         maybeBonus(br,true);
+       }else{
+         maybeBonus(br);
+       }
+     }else score+=10;
+     if(b.fragile)b.dead=true;
+     break;
+   }
+ }
+
+ const alive=[];
+ for(const b of bullets){
+   if(b.dead)continue;
+   if(b.y-b.r>canvas.height+8){continue}
+   alive.push(b)
+ }
+ bullets=alive;
+
+ for(const p of particles){p.x+=p.vx*dt;p.y+=p.vy*dt;p.life-=dt}
+ particles=particles.filter(p=>p.life>0);
+ for(const e of lightningEffects)e.life-=dt;
+ lightningEffects=lightningEffects.filter(e=>e.life>0);
+
+ for(const fx of bossSpawnEffects){
+   fx.life -= dt;
+   if(fx.life <= 0 && fx.target){
+     fx.target.hiddenUntilSpawn = false;
+   }
+ }
+ bossSpawnEffects = bossSpawnEffects.filter(fx=>fx.life>0);
+
+
+ if(
+   spawnedThisWave >= waveBudget &&
+   activeWaveBricks().length === 0
+ ){
+   finishWave();
+   return;
+ }
+
+ updateUI()
+}
+
+function nearestTrajectory(){
+ const d=aimDir(),hero=getHero('pistol'),start={x:hero.x,y:hero.y};
+ let bestT=Infinity,nx=0,ny=0;
+ const walls=[];
+ if(d.x>0)walls.push([(canvas.width-start.x)/d.x,-1,0]);
+ if(d.x<0)walls.push([(0-start.x)/d.x,1,0]);
+ if(d.y<0)walls.push([(0-start.y)/d.y,0,1]);
+ for(const [t,x,y] of walls)if(t>0&&t<bestT){bestT=t;nx=x;ny=y}
+ for(const br of bricks){
+   if(!br.alive)continue;
+   const tx1=(br.x-start.x)/d.x,tx2=(br.x+br.w-start.x)/d.x;
+   const ty1=(br.y-start.y)/d.y,ty2=(br.y+br.h-start.y)/d.y;
+   const tmin=Math.max(Math.min(tx1,tx2),Math.min(ty1,ty2));
+   const tmax=Math.min(Math.max(tx1,tx2),Math.max(ty1,ty2));
+   if(tmin>0&&tmin<=tmax&&tmin<bestT){
+     bestT=tmin;
+     if(Math.min(tx1,tx2)>Math.min(ty1,ty2)){nx=d.x>0?-1:1;ny=0}else{nx=0;ny=d.y>0?-1:1}
+   }
+ }
+ if(!isFinite(bestT))return null;
+ const hit={x:start.x+d.x*bestT,y:start.y+d.y*bestT};
+ const dot=d.x*nx+d.y*ny,rx=d.x-2*dot*nx,ry=d.y-2*dot*ny;
+ return {start,hit,end:{x:hit.x+rx*340,y:hit.y+ry*340}}
+}
+
+function drawTrajectory(){
+ const tr=nearestTrajectory();if(!tr)return;
+ ctx.save();ctx.setLineDash([11,11]);ctx.lineWidth=3;
+ ctx.strokeStyle='rgba(235,243,255,.92)';
+ ctx.beginPath();ctx.moveTo(tr.start.x,tr.start.y);ctx.lineTo(tr.hit.x,tr.hit.y);ctx.stroke();
+ const g=ctx.createLinearGradient(tr.hit.x,tr.hit.y,tr.end.x,tr.end.y);
+ g.addColorStop(0,'rgba(235,243,255,.9)');g.addColorStop(1,'rgba(235,243,255,0)');
+ ctx.strokeStyle=g;ctx.beginPath();ctx.moveTo(tr.hit.x,tr.hit.y);ctx.lineTo(tr.end.x,tr.end.y);ctx.stroke();
+ ctx.restore();
+ ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(tr.hit.x,tr.hit.y,5,0,Math.PI*2);ctx.fill()
+}
+
+function drawHero(h,color,label){
+ ctx.save();
+ ctx.shadowColor=color;ctx.shadowBlur=16;
+ ctx.fillStyle='rgba(20,42,80,.96)';ctx.strokeStyle=color;ctx.lineWidth=4;
+ ctx.beginPath();ctx.arc(h.x,h.y,23,0,Math.PI*2);ctx.fill();ctx.stroke();
+ const d=aimDir();ctx.strokeStyle='#eef8ff';ctx.lineWidth=6;
+ ctx.beginPath();ctx.moveTo(h.x+d.x*10,h.y+d.y*10);ctx.lineTo(h.x+d.x*35,h.y+d.y*35);ctx.stroke();
+ ctx.shadowBlur=0;ctx.fillStyle='#fff';ctx.font='bold 12px Inter';ctx.textAlign='center';ctx.fillText(label,h.x,h.y+4);
+ ctx.restore()
+}
+
+function draw(){
+ ctx.clearRect(0,0,canvas.width,canvas.height);
+ const bg=ctx.createLinearGradient(0,0,0,canvas.height);bg.addColorStop(0,'#07172e');bg.addColorStop(1,'#020914');
+ ctx.fillStyle=bg;ctx.fillRect(0,0,canvas.width,canvas.height);
+ ctx.strokeStyle='rgba(255,255,255,.035)';
+ for(let x=0;x<canvas.width;x+=40){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,canvas.height);ctx.stroke()}
+ for(let y=0;y<canvas.height;y+=40){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(canvas.width,y);ctx.stroke()}
+
+ for(const br of bricks){
+   if(!br.alive || br.hiddenUntilSpawn)continue;
+
+   if(br.type==='boss'){
+     const pulseScale = 1 + (br.pulse || 0) * .06;
+     const cx = br.x + br.w/2;
+     const cy = br.y + br.h/2;
+
+     ctx.save();
+     ctx.translate(cx,cy);
+     ctx.scale(pulseScale,pulseScale);
+     ctx.translate(-cx,-cy);
+
+     const bossGrad = ctx.createLinearGradient(br.x,br.y,br.x+br.w,br.y+br.h);
+     bossGrad.addColorStop(0,'#a73cff');
+     bossGrad.addColorStop(.5,'#d55cff');
+     bossGrad.addColorStop(1,'#6d2bd6');
+
+     ctx.shadowColor='#d45cff';
+     ctx.shadowBlur=24;
+     ctx.fillStyle=bossGrad;
+     ctx.beginPath();
+     ctx.roundRect(br.x,br.y,br.w,br.h,14);
+     ctx.fill();
+
+     ctx.shadowBlur=0;
+     ctx.strokeStyle='#ffd1ff';
+     ctx.lineWidth=4;
+     ctx.beginPath();
+     ctx.roundRect(br.x-2,br.y-2,br.w+4,br.h+4,16);
+     ctx.stroke();
+
+     // Внутренняя сетка 3×2, чтобы размер босса читался как шесть кирпичей.
+     ctx.strokeStyle='rgba(255,255,255,.28)';
+     ctx.lineWidth=2;
+     const cellW = (br.w - 2*GRID.gap)/3;
+     const cellH = (br.h - GRID.gap)/2;
+
+     for(let i=1;i<3;i++){
+       const x=br.x+i*cellW+(i-.5)*GRID.gap;
+       ctx.beginPath();ctx.moveTo(x,br.y+8);ctx.lineTo(x,br.y+br.h-8);ctx.stroke();
+     }
+     const midY=br.y+cellH+GRID.gap/2;
+     ctx.beginPath();ctx.moveTo(br.x+8,midY);ctx.lineTo(br.x+br.w-8,midY);ctx.stroke();
+
+     if(br.shield){
+       ctx.save();
+       ctx.strokeStyle='rgba(110,235,255,.95)';
+       ctx.lineWidth=7;
+       ctx.shadowColor='#63dfff';
+       ctx.shadowBlur=22;
+       ctx.beginPath();
+       ctx.roundRect(br.x-10,br.y-10,br.w+20,br.h+20,22);
+       ctx.stroke();
+       ctx.restore();
+     }
+
+     ctx.fillStyle='#fff';
+     ctx.font='bold 18px Inter';
+     ctx.textAlign='center';
+     ctx.textBaseline='top';
+     ctx.fillText(`БОСС · ФАЗА ${br.phase}`,cx,br.y+10);
+
+     ctx.font='bold 28px Inter';
+     ctx.textBaseline='middle';
+     ctx.fillText(
+       br.shield ? 'ЩИТ' : Math.max(0,br.hp),
+       cx,
+       cy+12
+     );
+     ctx.restore();
+   } else {
+     ctx.globalAlpha=.62+.38*(br.hp/br.maxHp);
+     ctx.fillStyle=br.color;
+     ctx.beginPath();
+     ctx.roundRect(br.x,br.y,br.w,br.h,7);
+     ctx.fill();
+     ctx.globalAlpha=1;
+
+     ctx.fillStyle='#fff';
+     ctx.font='bold 15px Inter';
+     ctx.textAlign='center';
+     ctx.textBaseline='middle';
+     ctx.fillText(Math.max(0,br.hp),br.x+br.w/2,br.y+br.h/2+1);
+   }
+ }
+
+ for(const fx of bossSpawnEffects){
+   const t = 1 - Math.max(0,fx.life/fx.maxLife);
+   const ease = t*t*(3-2*t);
+   const x = fx.x + (fx.tx-fx.x)*ease;
+   const y = fx.y + (fx.ty-fx.y)*ease;
+
+   ctx.save();
+   ctx.strokeStyle='rgba(220,160,255,.65)';
+   ctx.lineWidth=3;
+   ctx.setLineDash([6,8]);
+   ctx.beginPath();
+   ctx.moveTo(fx.x,fx.y);
+   ctx.lineTo(x,y);
+   ctx.stroke();
+
+   ctx.shadowColor='#d680ff';
+   ctx.shadowBlur=18;
+   ctx.fillStyle='#f3c0ff';
+   ctx.beginPath();
+   ctx.arc(x,y,8,0,Math.PI*2);
+   ctx.fill();
+   ctx.restore();
+ }
+
+ for(const effect of lightningEffects)drawLightning(effect);
+
+ // Маркер движения показывается только при перехвате или возвращении.
+
+
+ for(const bonus of bonuses){
+   if(bonus.state==='homing'){
+     ctx.save();
+     ctx.setLineDash([4,7]);
+     ctx.strokeStyle='rgba(110,210,255,.58)';
+     ctx.lineWidth=2;
+     ctx.beginPath();
+     ctx.moveTo(bonus.x,bonus.y);
+     ctx.lineTo(formation.x,formation.y);
+     ctx.stroke();
+     ctx.restore();
+   }
+
+   ctx.save();
+   ctx.translate(bonus.x,bonus.y);
+   ctx.rotate(bonus.spin);
+   ctx.shadowColor=bonus.state==='falling'?'#ffd95d':'#72cfff';
+   ctx.shadowBlur=20;
+
+   const g=ctx.createRadialGradient(-4,-5,2,0,0,bonus.r+4);
+   g.addColorStop(0,'#fff');
+   g.addColorStop(.35,'#fff0a2');
+   g.addColorStop(1,bonus.state==='falling'?'#ffb52e':'#4fb8ff');
+   ctx.fillStyle=g;
+   ctx.beginPath();
+   ctx.arc(0,0,bonus.r,0,Math.PI*2);
+   ctx.fill();
+
+   ctx.shadowBlur=0;
+   ctx.fillStyle='#07142a';
+   ctx.font='bold 17px Inter';
+   ctx.textAlign='center';
+   ctx.textBaseline='middle';
+   ctx.fillText('★',0,1);
+   ctx.restore();
+ }
+
+ drawTrajectory();
+
+ for(const b of bullets){
+   for(const t of b.trail){ctx.globalAlpha=Math.max(0,t.life/.16)*.25;ctx.fillStyle='#7ff0bb';ctx.beginPath();ctx.arc(t.x,t.y,b.r*.7,0,Math.PI*2);ctx.fill()}
+   ctx.globalAlpha=1;
+   const col=b.type==='pistol'?'#73b4ff':b.type==='shotgun'?'#ffb45e':'#74efb2';
+   ctx.fillStyle=col;ctx.beginPath();ctx.arc(b.x,b.y,b.r,0,Math.PI*2);ctx.fill()
+ }
+
+ ctx.save();ctx.setLineDash([9,9]);ctx.strokeStyle='rgba(255,92,112,.55)';ctx.beginPath();
+ ctx.moveTo(0,formation.y-112);ctx.lineTo(canvas.width,formation.y-112);ctx.stroke();ctx.restore();
+
+ const hs=heroPositions();
+
+ // Общий стабильный прицел привязан к верхней центральной пушке.
+ ctx.save();
+ ctx.strokeStyle = 'rgba(255,255,255,.72)';
+ ctx.lineWidth = 2;
+ ctx.setLineDash([5,7]);
+ ctx.beginPath();
+ ctx.arc(hs[0].x, hs[0].y, 30, 0, Math.PI*2);
+ ctx.stroke();
+ ctx.restore();
+
+ drawHero(hs[0],'#73b4ff','P');
+ drawHero(hs[1],'#ffb45e','S');
+ drawHero(hs[2],'#74efb2','A');
+
+ for(const p of particles){ctx.globalAlpha=p.life/p.max;ctx.fillStyle=p.color;ctx.fillRect(p.x,p.y,4,4)}
+ ctx.globalAlpha=1
+}
+
+function updateUI(){
+ ui.score.textContent=score;ui.level.textContent=level;ui.wave.textContent=waveInCycle===4?'БОСС':`${waveInCycle}/3`;ui.waveLeft.textContent=waveRemaining();ui.angle.textContent=`${Math.round(angleDeg)}°`;ui.teamHp.textContent=teamHp; ui.turnName.textContent=weapons[turnIndex].name
+}
+
+function loop(t){
+ if(!running)return;
+ const dt=Math.min((t-last)/1000,.025);last=t;
+ if(!paused&&!choosing)update(dt);
+ draw();raf=requestAnimationFrame(loop)
+}
+
+function start(){
+ resetGame();running=true;paused=false;ui.overlay.classList.remove('show');last=performance.now();cancelAnimationFrame(raf);raf=requestAnimationFrame(loop)
+}
+function togglePause(){
+ if(!running||choosing)return;
+ paused=!paused;ui.pauseBtn.textContent=paused?'Продолжить':'Пауза';
+ if(paused){ui.overlayTitle.textContent='Пауза';ui.overlayText.textContent='Нажмите пробел или кнопку, чтобы продолжить.';ui.startBtn.textContent='Продолжить';ui.overlay.classList.add('show')}
+ else{ui.overlay.classList.remove('show');last=performance.now()}
+}
+function gameOver(){
+ running=false;cancelAnimationFrame(raf);ui.overlayTitle.textContent='Проигрыш';ui.overlayText.textContent=`Враг достиг отряда. Счёт: ${score}.`;ui.startBtn.textContent='Играть снова';ui.overlay.classList.add('show')
+}
+
+
+// Мышь работает как временный аналоговый стик.
+// X задаёт направление стрельбы.
+// Тяга вверх двигает отряд в сторону текущего направления.
+let mousePointerId=null;
+let mouseOriginX=0;
+let mouseOriginY=0;
+const mouseRadius=110;
+
+function updateMouseInput(clientX,clientY){
+  let dx=clientX-mouseOriginX;
+  let dy=clientY-mouseOriginY;
+  const length=Math.hypot(dx,dy);
+  if(length>mouseRadius){
+    dx=dx/length*mouseRadius;
+    dy=dy/length*mouseRadius;
+  }
+
+  const nx=dx/mouseRadius;
+  const ny=dy/mouseRadius;
+  const dead=.1;
+
+  const horizontalBand = Math.abs(ny)<=0.20;
+  const aimingZone = ny<0 || horizontalBand;
+
+  if(aimingZone){
+    mouseInput.steer=Math.abs(nx)<dead?null:nx;
+    mouseInput.move=0;
+  }else{
+    // В нижней полусфере двигаем отряд,
+    // но угол прицела не изменяем.
+    mouseInput.steer=null;
+    mouseInput.move=Math.abs(nx)<dead?0:nx;
+  }
+}
+
+function releaseMouseInput(){
+  mousePointerId=null;
+  mouseInput.steer=null;
+  mouseInput.move=0;
+}
+
+canvas.addEventListener('pointerdown',e=>{
+  if(e.pointerType!=='mouse' || e.button!==0)return;
+  e.preventDefault();
+  mousePointerId=e.pointerId;
+  mouseOriginX=e.clientX;
+  mouseOriginY=e.clientY;
+  canvas.setPointerCapture(e.pointerId);
+});
+
+canvas.addEventListener('pointermove',e=>{
+  if(e.pointerId!==mousePointerId)return;
+  e.preventDefault();
+  updateMouseInput(e.clientX,e.clientY);
+});
+
+canvas.addEventListener('pointerup',e=>{
+  if(e.pointerId===mousePointerId)releaseMouseInput();
+});
+
+canvas.addEventListener('pointercancel',e=>{
+  if(e.pointerId===mousePointerId)releaseMouseInput();
+});
+
+
+
+
+// Плавающий стик: касание в любом месте игрового поля.
+// Верхняя полусфера и горизонталь — направление стрельбы.
+// Нижняя полусфера — движение отряда вбок без сброса прицела.
+const floatingStick=$('floatingStick');
+const floatingStickKnob=$('floatingStickKnob');
+
+let touchPointerId=null;
+let touchOriginX=0;
+let touchOriginY=0;
+const floatingRadius=52;
+
+function resetFloatingTouch(){
+  touchPointerId=null;
+  touchInput.steer=null;
+  touchInput.move=0;
+  floatingStick.style.display='none';
+  floatingStickKnob.style.transform='translate(0,0)';
+}
+
+function updateFloatingTouch(clientX,clientY){
+  let dx=clientX-touchOriginX;
+  let dy=clientY-touchOriginY;
+
+  const length=Math.hypot(dx,dy);
+  if(length>floatingRadius){
+    dx=dx/length*floatingRadius;
+    dy=dy/length*floatingRadius;
+  }
+
+  floatingStickKnob.style.transform=`translate(${dx}px,${dy}px)`;
+
+  const nx=dx/floatingRadius;
+  const ny=dy/floatingRadius;
+  const dead=.12;
+
+  // Горизонтальное движение всегда относится к прицелу.
+  // Верхняя полусфера также управляет прицелом.
+  // Только заметное движение вниз включает боковое перемещение.
+  const horizontalBand=Math.abs(ny)<=0.24;
+  const aimingZone=ny<0 || horizontalBand;
+
+  if(aimingZone){
+    touchInput.steer=Math.abs(nx)<dead?null:nx;
+    touchInput.move=0;
+  }else{
+    // При переходе вниз сохраняем последний угол прицела.
+    touchInput.steer=null;
+    touchInput.move=Math.abs(nx)<dead?0:nx;
+  }
+}
+
+canvas.addEventListener('pointerdown',e=>{
+  if(e.pointerType==='mouse')return;
+  e.preventDefault();
+
+  touchPointerId=e.pointerId;
+  touchOriginX=e.clientX;
+  touchOriginY=e.clientY;
+
+  floatingStick.style.left=`${touchOriginX}px`;
+  floatingStick.style.top=`${touchOriginY}px`;
+  floatingStick.style.display='block';
+  floatingStickKnob.style.transform='translate(0,0)';
+
+  canvas.setPointerCapture(e.pointerId);
+});
+
+canvas.addEventListener('pointermove',e=>{
+  if(e.pointerId!==touchPointerId)return;
+  e.preventDefault();
+  updateFloatingTouch(e.clientX,e.clientY);
+});
+
+canvas.addEventListener('pointerup',e=>{
+  if(e.pointerId===touchPointerId)resetFloatingTouch();
+});
+
+canvas.addEventListener('pointercancel',e=>{
+  if(e.pointerId===touchPointerId)resetFloatingTouch();
+});
+
+document.addEventListener('keydown',e=>{
+ const k=e.key.toLowerCase();
+ if(k==='arrowleft'||k==='a'){e.preventDefault();keys.left=true}
+ if(k==='arrowright'||k==='d'){e.preventDefault();keys.right=true}
+ if(k==='arrowup'||k==='w'){e.preventDefault();keys.up=true}
+ if(k==='arrowdown'||k==='s'){e.preventDefault();keys.down=true}
+ if(e.code==='Space'){e.preventDefault();togglePause()}
+});
+document.addEventListener('keyup',e=>{
+ const k=e.key.toLowerCase();
+ if(k==='arrowleft'||k==='a')keys.left=false;
+ if(k==='arrowright'||k==='d')keys.right=false;
+ if(k==='arrowup'||k==='w')keys.up=false;
+ if(k==='arrowdown'||k==='s')keys.down=false
+});
+
+
+
+
+ui.startBtn.onclick=()=>paused?togglePause():start();
+ui.pauseBtn.onclick=togglePause;
+ui.restartBtn.onclick=start;
+
+resetGame();
+</script>
+</body>
+</html>
